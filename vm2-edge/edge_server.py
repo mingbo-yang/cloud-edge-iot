@@ -10,9 +10,31 @@ import config
 
 app = Flask(__name__)
 
+# 终端上报数据要求包含的数值字段
+REQUIRED_FIELDS = ("temperature", "humidity", "pm25", "co2")
+
 # 数据缓冲池: {device_id: [data, ...]}
 buffer = defaultdict(list)
 buffer_lock = threading.Lock()
+
+
+def validate_payload(data: object) -> tuple[bool, str | None]:
+    """校验终端上报数据是否合法，返回 (是否合法, 错误信息)。
+
+    合法时会就地把数值字段统一转换为 float。
+    """
+    if not isinstance(data, dict):
+        return False, "请求体必须是 JSON 对象"
+    if not data.get("device_id"):
+        return False, "缺少字段: device_id"
+    for field in REQUIRED_FIELDS:
+        if field not in data:
+            return False, f"缺少字段: {field}"
+        try:
+            data[field] = float(data[field])
+        except (TypeError, ValueError):
+            return False, f"字段 {field} 必须是数值"
+    return True, None
 
 
 def check_anomaly(data: dict) -> tuple[bool, str | None]:
@@ -46,8 +68,14 @@ def forward_to_cloud(data: dict) -> bool:
 @app.route("/api/data", methods=["POST"])
 def receive_data():
     """接收终端数据，进行异常检测，缓冲聚合"""
-    data: dict = request.get_json(force=True)
-    device_id = data.get("device_id", "unknown")
+    data = request.get_json(force=True, silent=True)
+
+    ok, err = validate_payload(data)
+    if not ok:
+        print(f"[拒绝] 非法数据: {err}")
+        return jsonify({"status": "error", "message": err}), 400
+
+    device_id = data["device_id"]
 
     is_anomaly, anomaly_reason = check_anomaly(data)
 
