@@ -1,0 +1,47 @@
+services:
+  vm3-cloud:
+    build: ./vm3-cloud
+    container_name: vm3-cloud
+    ports:
+      - "5000:5000"
+    environment:
+      - CLOUD_HOST=0.0.0.0
+      - CLOUD_PORT=5000
+    networks:
+      - iot-network
+    restart: unless-stopped
+
+  vm2-edge:
+    build: ./vm2-edge
+    container_name: vm2-edge
+    ports:
+      - "5001:5000"
+    environment:
+      - EDGE_HOST=0.0.0.0
+      - EDGE_PORT=5000
+      - CLOUD_URL=http://vm3-cloud:5000
+      - PM25_THRESHOLD=50
+      - TEMP_THRESHOLD=38
+      - AGGREGATE_WINDOW=30
+    networks:
+      - iot-network
+    depends_on:
+      - vm3-cloud
+    restart: unless-stopped
+
+  vm1-terminal:
+    build: ./vm1-terminal
+    container_name: vm1-terminal
+    environment:
+      - DEVICE_COUNT=3
+      - SAMPLE_INTERVAL=5
+      - EDGE_URL=http://vm2-edge:5000
+    networks:
+      - iot-network
+    depends_on:
+      - vm2-edge
+    restart: unless-stopped
+
+networks:
+  iot-network:
+    driver: bridge

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT 智能环境监测 · 边云协同</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-0: #060914;
+      --bg-1: #0b1124;
+      --glass: rgba(255, 255, 255, 0.04);
+      --glass-strong: rgba(255, 255, 255, 0.07);
+      --border: rgba(255, 255, 255, 0.10);
+      --border-glow: rgba(99, 179, 237, 0.35);
+      --text: #e8edff;
+      --text-dim: #8b95b8;
+      --text-faint: #5a6488;
+      --cyan: #22d3ee;
+      --purple: #a78bfa;
+      --pink: #f472b6;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #fb5e7e;
+      --blue: #60a5fa;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      color: var(--text);
+      background: var(--bg-0);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* 动态渐变背景光晕 */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(60vw 60vw at 12% 8%, rgba(34, 211, 238, 0.16), transparent 60%),
+        radial-gradient(55vw 55vw at 88% 0%, rgba(167, 139, 250, 0.16), transparent 60%),
+        radial-gradient(50vw 50vw at 50% 110%, rgba(244, 114, 182, 0.12), transparent 60%);
+      animation: bgFloat 18s ease-in-out infinite alternate;
+      z-index: -2;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+      z-index: -1;
+    }
+    @keyframes bgFloat {
+      0%   { transform: translate3d(0,0,0) scale(1); }
+      100% { transform: translate3d(0,-3%,0) scale(1.08); }
+    }
+
+    /* ---------- 顶栏 ---------- */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 22px 34px;
+      backdrop-filter: blur(14px);
+      background: linear-gradient(90deg, rgba(13,18,40,0.7), rgba(13,18,40,0.35));
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand .logo {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      display: grid; place-items: center; font-size: 22px;
+      box-shadow: 0 0 22px rgba(34,211,238,0.45);
+      animation: pulseGlow 3s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+      0%,100% { box-shadow: 0 0 18px rgba(34,211,238,0.35); }
+      50%     { box-shadow: 0 0 30px rgba(167,139,250,0.6); }
+    }
+    .brand h1 {
+      font-size: 20px; font-weight: 700; letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #fff, var(--cyan));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .brand .sub { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+
+    .status { display: flex; align-items: center; gap: 18px; font-size: 13px; color: var(--text-dim); }
+    .live { display: flex; align-items: center; gap: 8px; }
+    .live .dot {
+      width: 9px; height: 9px; border-radius: 50%; background: var(--green);
+      box-shadow: 0 0 0 0 rgba(52,211,153,0.7);
+      animation: ripple 1.8s infinite;
+    }
+    @keyframes ripple {
+      0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.6); }
+      70%  { box-shadow: 0 0 0 10px rgba(52,211,153,0); }
+      100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+    }
+    .countdown-pill {
+      padding: 4px 12px; border-radius: 999px;
+      background: var(--glass); border: 1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+    }
+    .countdown-pill b { color: var(--cyan); }
+
+    .container { max-width: 1460px; margin: 0 auto; padding: 26px 34px 50px; }
+
+    /* ---------- 统计卡片 ---------- */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px; margin-bottom: 22px;
+    }
+    .stat-card {
+      position: relative; overflow: hidden;
+      background: var(--glass); border: 1px solid var(--border);
+      border-radius: 18px; padding: 22px 24px;
+      backdrop-filter: blur(12px);
+      animation: rise 0.6s cubic-bezier(.2,.7,.3,1) both;
+      transition: transform .25s, border-color .25s, box-shadow .25s;
+    }
+    .stat-card:nth-child(1) { animation-delay: .05s; }
+    .stat-card:nth-child(2) { animation-delay: .12s; }
+    .stat-card:nth-child(3) { animation-delay: .19s; }
+    .stat-card:nth-child(4) { animation-delay: .26s; }
+    .stat-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-glow);
+      box-shadow: 0 12px 40px rgba(34,211,238,0.10);
+    }
+    .stat-card .glowline {
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: .8;
+    }
+    .stat-card.purple .glowline { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
+    .stat-card.red .glowline    { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+    .stat-card.green .glowline  { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+    .stat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .stat-head .label { font-size: 13px; color: var(--text-dim); }
+    .stat-head .icon {
+      width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+      font-size: 18px; background: rgba(34,211,238,0.12); color: var(--cyan);
+    }
+    .stat-card.purple .icon { background: rgba(167,139,250,0.14); color: var(--purple); }
+    .stat-card.red .icon    { background: rgba(251,94,126,0.14); color: var(--red); }
+    .stat-card.green .icon  { background: rgba(52,211,153,0.14); color: var(--green); }
+    .stat-card .value { font-size: 36px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+    .stat-card .foot { font-size: 12px; color: var(--text-faint); margin-top: 8px; }
+    @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ---------- 主面板 ---------- */
+    .panels { display: grid; grid-template-columns: 2.6fr 1fr; gap: 18px; margin-bottom: 22px; }
+    .glass {
+      background: var(--glass); border: 1px solid var(--border);
+      border-radius: 18px; padding: 22px; backdrop-filter: blur(12px);
+      animation: rise 0.7s cubic-bezier(.2,.7,.3,1) both;
+    }
+    .panel-title { font-size: 15px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .panel-title .accent { width: 4px; height: 16px; border-radius: 3px; background: linear-gradient(var(--cyan), var(--purple)); }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tab {
+      padding: 7px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
+      border: 1px solid var(--border); background: var(--glass); color: var(--text-dim);
+      transition: all .2s;
+    }
+    .tab:hover { color: var(--text); border-color: var(--border-glow); }
+    .tab.active {
+      color: #04121b; font-weight: 600; border-color: transparent;
+      background: linear-gradient(135deg, var(--cyan), #7dd3fc);
+      box-shadow: 0 4px 16px rgba(34,211,238,0.35);
+    }
+    .chart-wrapper { position: relative; height: 330px; }
+
+    /* 设备列表 */
+    .device-panel { max-height: 432px; overflow-y: auto; }
+    .device-panel::-webkit-scrollbar { width: 6px; }
+    .device-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+    .device-card {
+      border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+      margin-bottom: 11px; cursor: pointer; position: relative; overflow: hidden;
+      background: var(--glass); transition: all .22s;
+    }
+    .device-card::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: var(--dev-color, var(--cyan)); opacity: .85;
+    }
+    .device-card:hover { transform: translateX(3px); border-color: var(--border-glow); }
+    .device-card.active { background: var(--glass-strong); border-color: var(--dev-color, var(--cyan)); box-shadow: 0 0 18px rgba(34,211,238,0.12); }
+    .device-card .dev-name { font-weight: 700; font-size: 14px; margin-bottom: 9px; display: flex; align-items: center; gap: 8px; }
+    .device-card .dev-name .swatch { width: 9px; height: 9px; border-radius: 50%; background: var(--dev-color, var(--cyan)); box-shadow: 0 0 8px var(--dev-color, var(--cyan)); }
+    .device-card .dev-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 12px; color: var(--text-faint); }
+    .device-card .dev-metrics b { color: var(--text); font-weight: 600; }
+    .device-card .dev-status { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-top: 10px; }
+    .dev-status.ok { background: rgba(52,211,153,0.14); color: var(--green); }
+    .dev-status.warn { background: rgba(251,94,126,0.16); color: var(--red); animation: blink 1.4s infinite; }
+    @keyframes blink { 50% { opacity: .55; } }
+
+    /* 异常列表 */
+    .anomaly-title { color: var(--red); }
+    .anomaly-title .accent { background: linear-gradient(var(--red), var(--pink)); }
+    .anomaly-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 11px 12px; border-radius: 11px; margin-bottom: 8px; font-size: 13px;
+      background: rgba(251,94,126,0.06); border: 1px solid rgba(251,94,126,0.16);
+      animation: rise .4s ease both;
+    }
+    .anomaly-item .who { font-weight: 700; }
+    .anomaly-item .reason { color: var(--red); font-size: 12px; margin-left: 8px; }
+    .anomaly-item .time { color: var(--text-faint); font-size: 12px; white-space: nowrap; }
+
+    .empty { color: var(--text-faint); text-align: center; padding: 34px 10px; font-size: 14px; }
+
+    @media (max-width: 900px) {
+      .panels { grid-template-columns: 1fr; }
+      .header { padding: 16px 18px; }
+      .container { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <div class="logo">🛰️</div>
+    <div>
+      <h1>边-云协同 IoT 智能环境监测</h1>
+      <div class="sub">Edge-Cloud Collaborative Environmental Monitoring</div>
+    </div>
+  </div>
+  <div class="status">
+    <span class="live"><span class="dot" id="statusDot"></span><span id="statusText">实时运行中</span></span>
+    <span class="countdown-pill">下次刷新 <b id="countdown">3</b>s</span>
+  </div>
+</header>
+
+<div class="container">
+  <!-- 统计卡片 -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="glowline"></div>
+      <div class="stat-head"><span class="label">在线设备</span><span class="icon">📟</span></div>
+      <div class="value" id="statDevices">0</div>
+      <div class="foot">活跃终端模拟器</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="glowline"></div>
+      <div class="stat-head"><span class="label">数据总量</span><span class="icon">📊</span></div>
+      <div class="value" id="statTotal">0</div>
+      <div class="foot">累计上云记录条数</div>
+    </div>
+    <div class="stat-card red">
+      <div class="glowline"></div>
+      <div class="stat-head"><span class="label">异常记录</span><span class="icon">⚠️</span></div>
+      <div class="value" id="statAnomalies">0</div>
+      <div class="foot">触发阈值的告警</div>
+    </div>
+    <div class="stat-card green">
+      <div class="glowline"></div>
+      <div class="stat-head"><span class="label">聚合上报</span><span class="icon">🧩</span></div>
+      <div class="value" id="statAgg">0</div>
+      <div class="foot">边缘节点聚合次数</div>
+    </div>
+  </div>
+
+  <!-- 图表 + 设备列表 -->
+  <div class="panels">
+    <div class="glass">
+      <div class="panel-title"><span class="accent"></span>实时趋势</div>
+      <div class="tabs">
+        <button class="tab active" data-metric="temperature">🌡️ 温度</button>
+        <button class="tab" data-metric="humidity">💧 湿度</button>
+        <button class="tab" data-metric="pm25">🌫️ PM2.5</button>
+        <button class="tab" data-metric="co2">🫧 CO₂</button>
+      </div>
+      <div class="chart-wrapper"><canvas id="mainChart"></canvas></div>
+    </div>
+
+    <div class="glass device-panel">
+      <div class="panel-title"><span class="accent"></span>设备列表</div>
+      <div id="deviceCards"><div class="empty">暂无设备数据</div></div>
+    </div>
+  </div>
+
+  <!-- 异常列表 -->
+  <div class="glass">
+    <div class="panel-title anomaly-title"><span class="accent"></span>异常事件 · 最近 20 条</div>
+    <div id="anomalyItems"><div class="empty">暂无异常事件 ✓</div></div>
+  </div>
+</div>
+
+<script src="/static/dashboard.js"></script>
+</body>
+</html>
