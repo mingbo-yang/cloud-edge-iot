@@ -1,21 +1,20 @@
-const POLL_INTERVAL = 3000;   // 刷新间隔 ms
-const MAX_POINTS = 60;        // 图表最多显示点数
+const POLL_INTERVAL = 3000;
+const MAX_POINTS = 60;
 
-// 每个设备分配一种固定的高辨识度颜色
 const DEVICE_PALETTE = [
-  "#22d3ee", "#a78bfa", "#f472b6", "#34d399",
-  "#fbbf24", "#60a5fa", "#fb7185", "#4ade80",
-  "#e879f9", "#38bdf8",
+  "#2563eb", "#0891b2", "#7c3aed", "#059669",
+  "#d97706", "#dc2626", "#0f766e", "#9333ea",
+  "#0284c7", "#be123c",
 ];
-const deviceColorMap = {};
-function colorForDevice(devId) {
-  if (!(devId in deviceColorMap)) {
-    const idx = Object.keys(deviceColorMap).length % DEVICE_PALETTE.length;
-    deviceColorMap[devId] = DEVICE_PALETTE[idx];
-  }
-  return deviceColorMap[devId];
-}
 
+const METRIC_INFO = {
+  temperature: { title: "温度 (°C)", short: "温度", unit: "°C" },
+  humidity: { title: "湿度 (%)", short: "湿度", unit: "%" },
+  pm25: { title: "PM2.5 (μg/m³)", short: "PM2.5", unit: "" },
+  co2: { title: "CO2 (ppm)", short: "CO2", unit: "" },
+};
+
+const deviceColorMap = {};
 let currentMetric = "temperature";
 let currentDevice = null;
 let chart = null;
@@ -24,27 +23,87 @@ let allData = [];
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-// ---------- 数字滚动动画 ----------
+function colorForDevice(devId) {
+  if (!(devId in deviceColorMap)) {
+    const idx = Object.keys(deviceColorMap).length % DEVICE_PALETTE.length;
+    deviceColorMap[devId] = DEVICE_PALETTE[idx];
+  }
+  return deviceColorMap[devId];
+}
+
+function formatNumber(value, digits = 1) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
+  return Number(value).toFixed(digits).replace(/\.0$/, "");
+}
+
+function metricText(value, metric) {
+  const info = METRIC_INFO[metric];
+  const n = formatNumber(value);
+  if (n === "--") return "--";
+  return `${n}${info.unit}`;
+}
+
 function animateNumber(el, target) {
   const from = parseInt(el.dataset.val || "0", 10);
   if (from === target) return;
   el.dataset.val = target;
   const start = performance.now();
-  const dur = 600;
+  const dur = 520;
+
   function tick(now) {
     const p = Math.min((now - start) / dur, 1);
     const eased = 1 - Math.pow(1 - p, 3);
     el.textContent = Math.round(from + (target - from) * eased).toLocaleString();
     if (p < 1) requestAnimationFrame(tick);
   }
+
   requestAnimationFrame(tick);
 }
 
-// ---------- 图表 ----------
+function hexToRgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
+function getNewestRecord(latest) {
+  const records = Object.values(latest || {}).filter(Boolean);
+  if (records.length === 0) return null;
+  return records.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))[0];
+}
+
+function updateQualitySummary(stats) {
+  const latest = stats?.latest || {};
+  const newest = getNewestRecord(latest);
+  const anomalyCount = stats?.anomaly_count || 0;
+  const deviceCount = stats?.device_count || 0;
+
+  if (!newest) {
+    $("#qualityValue").textContent = "等待数据";
+    $("#qualityNote").textContent = "等待终端接入并上报。";
+    $("#latestTemp").textContent = "--";
+    $("#latestPm25").textContent = "--";
+    $("#latestHumidity").textContent = "--";
+    $("#latestCo2").textContent = "--";
+    return;
+  }
+
+  const isWarn = Boolean(newest.anomaly);
+  $("#qualityValue").textContent = isWarn ? "需要关注" : "运行平稳";
+  $("#qualityValue").style.color = isWarn ? "#dc2626" : "#059669";
+  $("#qualityNote").textContent = isWarn
+    ? `${newest.device_id || "最新设备"} 触发阈值告警。`
+    : `${deviceCount} 个设备在线，累计 ${anomalyCount} 条异常。`;
+
+  $("#latestTemp").textContent = metricText(newest.temperature, "temperature");
+  $("#latestPm25").textContent = formatNumber(newest.pm25);
+  $("#latestHumidity").textContent = metricText(newest.humidity, "humidity");
+  $("#latestCo2").textContent = formatNumber(newest.co2);
+}
+
 function initChart() {
-  Chart.defaults.color = "#8b95b8";
+  Chart.defaults.color = "#64748b";
   Chart.defaults.font.family =
-    "-apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif";
+    "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif";
 
   const ctx = $("#mainChart").getContext("2d");
   chart = new Chart(ctx, {
@@ -53,58 +112,69 @@ function initChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 500, easing: "easeOutQuart" },
+      animation: { duration: 420, easing: "easeOutQuart" },
       interaction: { intersect: false, mode: "index" },
       plugins: {
-        legend: { position: "top", labels: { usePointStyle: true, boxWidth: 8, padding: 16, color: "#c7cef0" } },
+        legend: {
+          position: "top",
+          align: "start",
+          labels: {
+            usePointStyle: true,
+            boxWidth: 8,
+            boxHeight: 8,
+            padding: 18,
+            color: "#334155",
+            font: { size: 12, weight: "600" },
+          },
+        },
         tooltip: {
-          backgroundColor: "rgba(10,14,30,0.92)",
-          borderColor: "rgba(255,255,255,0.12)",
-          borderWidth: 1, padding: 12, cornerRadius: 10,
-          titleColor: "#e8edff", bodyColor: "#c7cef0",
+          backgroundColor: "rgba(255, 255, 255, 0.96)",
+          titleColor: "#0f172a",
+          bodyColor: "#334155",
+          borderColor: "rgba(15, 23, 42, 0.10)",
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 14,
+          displayColors: true,
+          boxPadding: 5,
         },
       },
       scales: {
         x: {
-          grid: { color: "rgba(255,255,255,0.05)" },
-          ticks: { maxTicksLimit: 10, maxRotation: 0, color: "#5a6488" },
-          title: { display: true, text: "时间", color: "#5a6488" },
+          grid: { color: "rgba(100, 116, 139, 0.10)", drawBorder: false },
+          ticks: { maxTicksLimit: 9, maxRotation: 0, color: "#94a3b8" },
+          title: { display: false },
         },
         y: {
           beginAtZero: false,
-          grid: { color: "rgba(255,255,255,0.05)" },
-          ticks: { color: "#8b95b8" },
-          title: { display: true, text: "", color: "#8b95b8" },
+          grid: { color: "rgba(100, 116, 139, 0.12)", drawBorder: false },
+          ticks: { color: "#64748b" },
+          title: {
+            display: true,
+            text: METRIC_INFO[currentMetric].title,
+            color: "#64748b",
+            font: { weight: "650" },
+          },
         },
       },
     },
   });
 }
 
-function getMetricInfo(metric) {
-  const map = {
-    temperature: { title: "温度 (°C)" },
-    humidity: { title: "湿度 (%)" },
-    pm25: { title: "PM2.5 (μg/m³)" },
-    co2: { title: "CO₂ (ppm)" },
-  };
-  return map[metric] || { title: metric };
-}
-
-function hexToRgba(hex, a) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
-}
-
 function updateChart() {
   if (!chart) return;
-  chart.options.scales.y.title.text = getMetricInfo(currentMetric).title;
+
+  chart.options.scales.y.title.text = METRIC_INFO[currentMetric].title;
+  $("#chartSubtitle").textContent = currentDevice
+    ? `正在查看 ${currentDevice} 的 ${METRIC_INFO[currentMetric].short} 趋势`
+    : `展示所有设备的 ${METRIC_INFO[currentMetric].short} 最新变化`;
 
   let filtered = allData;
   if (currentDevice) filtered = allData.filter((d) => d.device_id === currentDevice);
 
   const groups = {};
   filtered.forEach((d) => {
+    if (!d.device_id) return;
     (groups[d.device_id] = groups[d.device_id] || []).push(d);
   });
 
@@ -124,65 +194,58 @@ function updateChart() {
       label: devId,
       data: records.map((r) => r[currentMetric]),
       borderColor: c,
-      backgroundColor: hexToRgba(c, 0.12),
-      borderWidth: 2.2,
+      backgroundColor: hexToRgba(c, 0.10),
+      borderWidth: 2.4,
       fill: true,
-      pointRadius: records.map((r) => (r.anomaly ? 5.5 : 0)),
+      pointRadius: records.map((r) => (r.anomaly ? 5 : 2.3)),
       pointHoverRadius: 6,
-      pointBackgroundColor: records.map((r) => (r.anomaly ? "#fb5e7e" : c)),
-      pointBorderColor: records.map((r) => (r.anomaly ? "#fff" : c)),
-      pointBorderWidth: records.map((r) => (r.anomaly ? 1.5 : 0)),
-      tension: 0.35,
+      pointBackgroundColor: records.map((r) => (r.anomaly ? "#dc2626" : "#fff")),
+      pointBorderColor: records.map((r) => (r.anomaly ? "#dc2626" : c)),
+      pointBorderWidth: records.map((r) => (r.anomaly ? 2 : 1.8)),
+      tension: 0.38,
       spanGaps: true,
     });
   });
 
-  // 用点数最多的设备的时间序列作为 X 轴标签，减少错位
   chart.data.labels = longest.map((r) =>
     new Date(r.timestamp).toLocaleTimeString("zh-CN", {
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     })
   );
   chart.data.datasets = datasets;
   chart.update("none");
 }
 
-// ---------- 统计 ----------
-function updateStats() {
-  fetch("/api/stats")
-    .then((r) => r.json())
-    .then((s) => {
-      animateNumber($("#statDevices"), s.device_count || 0);
-      animateNumber($("#statTotal"), s.total_records || 0);
-      animateNumber($("#statAnomalies"), s.anomaly_count || 0);
-      animateNumber($("#statAgg"), s.aggregate_count || 0);
-      renderDeviceCards(s.latest);
-    })
-    .catch((e) => console.error("获取统计失败:", e));
-}
-
 function renderDeviceCards(latest) {
   const box = $("#deviceCards");
-  if (!latest || Object.keys(latest).length === 0) {
+  const entries = Object.entries(latest || {}).sort(([a], [b]) => a.localeCompare(b));
+
+  if (entries.length === 0) {
     box.innerHTML = '<div class="empty">暂无设备数据</div>';
     return;
   }
-  box.innerHTML = Object.entries(latest)
-    .sort(([a], [b]) => a.localeCompare(b))
+
+  box.innerHTML = entries
     .map(([devId, d]) => {
       const c = colorForDevice(devId);
+      const active = currentDevice === devId ? "active" : "";
+      const warn = d.anomaly ? "warn" : "";
+      const status = d.anomaly ? "异常" : "正常";
       return `
-      <div class="device-card ${currentDevice === devId ? "active" : ""}"
-           data-device="${devId}" style="--dev-color:${c}">
-        <div class="dev-name"><span class="swatch"></span>${devId}</div>
-        <div class="dev-metrics">
-          <div>温度 <b>${d.temperature ?? "--"}°C</b></div>
-          <div>湿度 <b>${d.humidity ?? "--"}%</b></div>
-          <div>PM2.5 <b>${d.pm25 ?? "--"}</b></div>
-          <div>CO₂ <b>${d.co2 ?? "--"}</b></div>
-        </div>
-        <span class="dev-status ${d.anomaly ? "warn" : "ok"}">${d.anomaly ? "● 异常" : "● 正常"}</span>
-      </div>`;
+        <button class="device-card ${active}" data-device="${devId}" style="--dev-color:${c}" type="button">
+          <div class="device-top">
+            <div class="device-name"><span class="swatch"></span><span>${devId}</span></div>
+            <span class="badge ${warn}">${status}</span>
+          </div>
+          <div class="device-metrics">
+            <span>温度 <b>${metricText(d.temperature, "temperature")}</b></span>
+            <span>湿度 <b>${metricText(d.humidity, "humidity")}</b></span>
+            <span>PM2.5 <b>${formatNumber(d.pm25)}</b></span>
+            <span>CO2 <b>${formatNumber(d.co2)}</b></span>
+          </div>
+        </button>`;
     })
     .join("");
 
@@ -197,7 +260,20 @@ function renderDeviceCards(latest) {
   });
 }
 
-// ---------- 异常列表 ----------
+function updateStats() {
+  fetch("/api/stats")
+    .then((r) => r.json())
+    .then((s) => {
+      animateNumber($("#statDevices"), s.device_count || 0);
+      animateNumber($("#statTotal"), s.total_records || 0);
+      animateNumber($("#statAnomalies"), s.anomaly_count || 0);
+      animateNumber($("#statAgg"), s.aggregate_count || 0);
+      renderDeviceCards(s.latest);
+      updateQualitySummary(s);
+    })
+    .catch((e) => console.error("获取统计失败:", e));
+}
+
 function updateAnomalyList() {
   fetch("/api/data/latest?limit=200")
     .then((r) => r.json())
@@ -208,36 +284,49 @@ function updateAnomalyList() {
 
       const box = $("#anomalyItems");
       if (list.length === 0) {
-        box.innerHTML = '<div class="empty">暂无异常事件 ✓</div>';
+        box.innerHTML = '<div class="empty">暂无异常事件</div>';
         return;
       }
+
       box.innerHTML = list
-        .map(
-          (d) => `
-        <div class="anomaly-item">
-          <div><span class="who" style="color:${colorForDevice(d.device_id)}">${d.device_id}</span>
-            <span class="reason">${d.anomaly_reason || "异常"}</span></div>
-          <div class="time">${new Date(d.timestamp).toLocaleString("zh-CN")}</div>
-        </div>`
-        )
+        .map((d) => {
+          const c = colorForDevice(d.device_id);
+          return `
+            <div class="anomaly-item">
+              <div>
+                <div class="anomaly-who" style="color:${c}">${d.device_id}</div>
+                <div class="anomaly-reason">${d.anomaly_reason || "指标超过阈值"}</div>
+              </div>
+              <div class="anomaly-time">${new Date(d.timestamp).toLocaleTimeString("zh-CN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}</div>
+            </div>`;
+        })
         .join("");
-    });
+    })
+    .catch((e) => console.error("获取异常事件失败:", e));
 }
 
-// ---------- 数据 ----------
 function updateData() {
-  fetch("/api/data/latest?limit=200")
+  fetch("/api/data/latest?limit=240")
     .then((r) => r.json())
-    .then((data) => { allData = data; updateChart(); })
+    .then((data) => {
+      allData = data;
+      updateChart();
+    })
     .catch((e) => {
       console.error("获取数据失败:", e);
-      $("#statusDot").style.background = "#fb5e7e";
+      $("#statusDot").style.background = "#dc2626";
+      $("#statusDot").style.boxShadow = "0 0 0 5px rgba(220, 38, 38, 0.12)";
       $("#statusText").textContent = "连接中断";
     });
 }
 
 function refreshAll() {
-  $("#statusDot").style.background = "#34d399";
+  $("#statusDot").style.background = "#059669";
+  $("#statusDot").style.boxShadow = "0 0 0 5px rgba(5, 150, 105, 0.12)";
   $("#statusText").textContent = "实时运行中";
   updateData();
   updateStats();
@@ -247,7 +336,11 @@ function refreshAll() {
 function startCountdown() {
   let c = POLL_INTERVAL / 1000;
   setInterval(() => {
-    if (--c <= 0) { c = POLL_INTERVAL / 1000; refreshAll(); }
+    c -= 1;
+    if (c <= 0) {
+      c = POLL_INTERVAL / 1000;
+      refreshAll();
+    }
     $("#countdown").textContent = c;
   }, 1000);
 }

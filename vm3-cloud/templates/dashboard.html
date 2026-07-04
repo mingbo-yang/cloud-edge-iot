@@ -3,304 +3,891 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IoT 智能环境监测 · 边云协同</title>
+  <title>边-云协同 IoT 智能环境监测</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg-0: #060914;
-      --bg-1: #0b1124;
-      --glass: rgba(255, 255, 255, 0.04);
-      --glass-strong: rgba(255, 255, 255, 0.07);
-      --border: rgba(255, 255, 255, 0.10);
-      --border-glow: rgba(99, 179, 237, 0.35);
-      --text: #e8edff;
-      --text-dim: #8b95b8;
-      --text-faint: #5a6488;
-      --cyan: #22d3ee;
-      --purple: #a78bfa;
-      --pink: #f472b6;
-      --green: #34d399;
-      --amber: #fbbf24;
-      --red: #fb5e7e;
-      --blue: #60a5fa;
+      color-scheme: light;
+      --page: #f6f8fb;
+      --surface: rgba(255, 255, 255, 0.72);
+      --surface-strong: rgba(255, 255, 255, 0.92);
+      --line: rgba(30, 41, 59, 0.10);
+      --line-strong: rgba(30, 41, 59, 0.16);
+      --text: #172033;
+      --muted: #64748b;
+      --faint: #94a3b8;
+      --blue: #2563eb;
+      --cyan: #0891b2;
+      --green: #059669;
+      --amber: #d97706;
+      --red: #dc2626;
+      --violet: #7c3aed;
+      --shadow: 0 24px 70px rgba(15, 23, 42, 0.10);
+      --shadow-soft: 0 14px 42px rgba(15, 23, 42, 0.07);
+      --shadow-lift: 0 32px 90px rgba(37, 99, 235, 0.13);
+      --radius: 24px;
+      --ease: cubic-bezier(.2,.7,.2,1);
+      --page-x: 32px;
+      --section-gap: 20px;
+      --cluster-gap: 16px;
+      --item-gap: 12px;
+      --micro-gap: 8px;
+      --hero-pad-y: 36px;
+      --hero-pad-x: 36px;
+      --hero-pad-bottom: 28px;
+      --panel-pad: 24px;
+      --card-pad: 20px;
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    html { scroll-behavior: smooth; }
-
+    * { box-sizing: border-box; }
+    html { min-height: 100%; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
-      color: var(--text);
-      background: var(--bg-0);
+      margin: 0;
       min-height: 100vh;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(238, 244, 255, 0.92) 42%, rgba(246, 250, 252, 0.98)),
+        linear-gradient(90deg, rgba(37, 99, 235, 0.10), rgba(8, 145, 178, 0.06), rgba(124, 58, 237, 0.08));
       overflow-x: hidden;
     }
 
-    /* 动态渐变背景光晕 */
     body::before {
       content: "";
       position: fixed;
       inset: 0;
-      background:
-        radial-gradient(60vw 60vw at 12% 8%, rgba(34, 211, 238, 0.16), transparent 60%),
-        radial-gradient(55vw 55vw at 88% 0%, rgba(167, 139, 250, 0.16), transparent 60%),
-        radial-gradient(50vw 50vw at 50% 110%, rgba(244, 114, 182, 0.12), transparent 60%);
-      animation: bgFloat 18s ease-in-out infinite alternate;
-      z-index: -2;
-    }
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
+      pointer-events: none;
       background-image:
-        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+        linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
       background-size: 44px 44px;
-      mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
-      z-index: -1;
-    }
-    @keyframes bgFloat {
-      0%   { transform: translate3d(0,0,0) scale(1); }
-      100% { transform: translate3d(0,-3%,0) scale(1.08); }
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.34), transparent 78%);
     }
 
-    /* ---------- 顶栏 ---------- */
-    .header {
+    button { font: inherit; }
+
+    .app-shell {
+      width: calc(100% - (var(--page-x) * 2));
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 28px 0 52px;
+    }
+
+    .topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 22px 34px;
-      backdrop-filter: blur(14px);
-      background: linear-gradient(90deg, rgba(13,18,40,0.7), rgba(13,18,40,0.35));
-      border-bottom: 1px solid var(--border);
-      position: sticky; top: 0; z-index: 10;
+      gap: var(--section-gap);
+      margin-bottom: var(--section-gap);
     }
-    .brand { display: flex; align-items: center; gap: 14px; }
-    .brand .logo {
-      width: 42px; height: 42px; border-radius: 12px;
-      background: linear-gradient(135deg, var(--cyan), var(--purple));
-      display: grid; place-items: center; font-size: 22px;
-      box-shadow: 0 0 22px rgba(34,211,238,0.45);
-      animation: pulseGlow 3s ease-in-out infinite;
-    }
-    @keyframes pulseGlow {
-      0%,100% { box-shadow: 0 0 18px rgba(34,211,238,0.35); }
-      50%     { box-shadow: 0 0 30px rgba(167,139,250,0.6); }
-    }
-    .brand h1 {
-      font-size: 20px; font-weight: 700; letter-spacing: 0.5px;
-      background: linear-gradient(90deg, #fff, var(--cyan));
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-    }
-    .brand .sub { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
 
-    .status { display: flex; align-items: center; gap: 18px; font-size: 13px; color: var(--text-dim); }
-    .live { display: flex; align-items: center; gap: 8px; }
-    .live .dot {
-      width: 9px; height: 9px; border-radius: 50%; background: var(--green);
-      box-shadow: 0 0 0 0 rgba(52,211,153,0.7);
-      animation: ripple 1.8s infinite;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--cluster-gap);
+      min-width: 0;
     }
-    @keyframes ripple {
-      0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.6); }
-      70%  { box-shadow: 0 0 0 10px rgba(52,211,153,0); }
-      100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+
+    .brand-mark {
+      width: 48px;
+      height: 48px;
+      border-radius: 17px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: 0;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.20), transparent 38%),
+        linear-gradient(145deg, #1d4ed8, #06b6d4);
+      box-shadow: 0 18px 42px rgba(37, 99, 235, 0.28);
+      flex: 0 0 auto;
     }
-    .countdown-pill {
-      padding: 4px 12px; border-radius: 999px;
-      background: var(--glass); border: 1px solid var(--border);
+
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 34px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status-cluster {
+      display: flex;
+      align-items: center;
+      gap: var(--item-gap);
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .glass-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--micro-gap);
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.62);
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255,255,255,0.75);
+      backdrop-filter: blur(18px) saturate(1.4);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 5px rgba(5, 150, 105, 0.12);
+    }
+
+    .hero-panel {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(0, 1.66fr) minmax(360px, 0.50fr);
+      gap: calc(var(--section-gap) + var(--cluster-gap));
+      padding: var(--hero-pad-y) var(--hero-pad-x) var(--hero-pad-bottom);
+      margin-bottom: var(--section-gap);
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      border-radius: 34px;
+      background:
+        linear-gradient(120deg, rgba(255,255,255,0.95), rgba(255,255,255,0.70)),
+        linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(8, 145, 178, 0.08) 52%, rgba(124, 58, 237, 0.06));
+      box-shadow: var(--shadow-lift);
+      backdrop-filter: blur(26px) saturate(1.55);
+      min-width: 0;
+    }
+
+    .hero-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 78% 8%, rgba(37, 99, 235, 0.16), transparent 30%),
+        linear-gradient(115deg, rgba(255,255,255,0.32), transparent 34%),
+        linear-gradient(270deg, rgba(37,99,235,0.08), transparent 46%);
+    }
+
+    .hero-panel::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: 31px;
+      pointer-events: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(15,23,42,0.05);
+    }
+
+    .hero-copy {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-width: 0;
+    }
+
+    .eyebrow {
+      color: var(--blue);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      margin-bottom: var(--cluster-gap);
+    }
+
+    .hero-title {
+      max-width: 900px;
+      font-size: clamp(52px, 4.9vw, 74px);
+      line-height: 0.98;
+      letter-spacing: 0;
+      margin: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .title-line {
+      display: block;
+    }
+
+    .flow-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--cluster-gap);
+      margin-top: calc(var(--section-gap) * 2);
+      margin-bottom: 0;
+      max-width: 990px;
+    }
+
+    .flow-step {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr);
+      align-items: center;
+      column-gap: var(--cluster-gap);
+      min-height: 96px;
+      padding: 16px 62px 16px 22px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.86), rgba(255,255,255,0.58)),
+        rgba(255,255,255,0.64);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.82), 0 16px 38px rgba(15, 23, 42, 0.055);
+      transition: transform .24s var(--ease), border-color .24s var(--ease), box-shadow .24s var(--ease);
+    }
+
+    .flow-step:hover {
+      transform: translateY(-3px);
+      border-color: rgba(37, 99, 235, 0.18);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.88), 0 22px 48px rgba(37, 99, 235, 0.10);
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: 0;
+      height: 3px;
+      border-radius: 999px 999px 0 0;
+      background: linear-gradient(90deg, var(--step-accent, var(--blue)), var(--cyan));
+      opacity: 0.72;
+    }
+
+    .flow-icon {
+      position: relative;
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.28), transparent 42%),
+        linear-gradient(145deg, var(--step-accent, var(--blue)), var(--cyan));
+      box-shadow: 0 14px 28px color-mix(in srgb, var(--step-accent, var(--blue)) 20%, transparent);
+      z-index: 1;
+    }
+
+    .flow-icon svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .flow-body {
+      min-width: 0;
+      z-index: 1;
+    }
+
+    .flow-body b {
+      display: block;
+      margin-bottom: var(--micro-gap);
+      font-size: 15px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .flow-body span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .flow-index {
+      position: absolute;
+      right: 22px;
+      top: 50%;
+      color: color-mix(in srgb, var(--step-accent, var(--blue)) 18%, transparent);
+      width: 38px;
+      text-align: right;
+      font-size: 32px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 0;
+      z-index: 0;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .quality-card {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 290px;
+      padding: calc(var(--panel-pad) + 2px);
+      border-radius: 28px;
+      border: 1px solid rgba(255,255,255,0.72);
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.92), rgba(255,255,255,0.66)),
+        rgba(255,255,255,0.74);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.90), 0 24px 56px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(24px) saturate(1.4);
+      min-width: 0;
+    }
+
+    .quality-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(120deg, rgba(255,255,255,0.36), transparent 38%);
+    }
+
+    .quality-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .quality-value {
+      margin-top: var(--item-gap);
+      font-size: 52px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .quality-note {
+      margin-top: var(--item-gap);
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--item-gap);
+      margin-top: calc(var(--section-gap) + var(--micro-gap));
+    }
+
+    .mini-metric {
+      padding: 14px 15px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(248,250,252,0.78);
+    }
+
+    .mini-metric span {
+      color: var(--faint);
+      font-size: 12px;
+    }
+
+    .mini-metric b {
+      display: block;
+      margin-top: 6px;
+      font-size: 20px;
       font-variant-numeric: tabular-nums;
     }
-    .countdown-pill b { color: var(--cyan); }
 
-    .container { max-width: 1460px; margin: 0 auto; padding: 26px 34px 50px; }
-
-    /* ---------- 统计卡片 ---------- */
     .stats-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 18px; margin-bottom: 22px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--cluster-gap);
+      margin-bottom: var(--section-gap);
     }
+
+    .stat-card, .panel {
+      border: 1px solid rgba(255,255,255,0.72);
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.86), rgba(255,255,255,0.62)),
+        var(--surface);
+      box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,0.85);
+      backdrop-filter: blur(24px) saturate(1.45);
+    }
+
     .stat-card {
-      position: relative; overflow: hidden;
-      background: var(--glass); border: 1px solid var(--border);
-      border-radius: 18px; padding: 22px 24px;
-      backdrop-filter: blur(12px);
-      animation: rise 0.6s cubic-bezier(.2,.7,.3,1) both;
-      transition: transform .25s, border-color .25s, box-shadow .25s;
+      padding: var(--card-pad);
+      border-radius: 24px;
+      min-height: 136px;
+      min-width: 0;
+      transition: transform .24s var(--ease), box-shadow .24s var(--ease);
     }
-    .stat-card:nth-child(1) { animation-delay: .05s; }
-    .stat-card:nth-child(2) { animation-delay: .12s; }
-    .stat-card:nth-child(3) { animation-delay: .19s; }
-    .stat-card:nth-child(4) { animation-delay: .26s; }
+
     .stat-card:hover {
-      transform: translateY(-4px);
-      border-color: var(--border-glow);
-      box-shadow: 0 12px 40px rgba(34,211,238,0.10);
+      transform: translateY(-3px);
+      box-shadow: 0 20px 52px rgba(37, 99, 235, 0.10), inset 0 1px 0 rgba(255,255,255,0.88);
     }
-    .stat-card .glowline {
-      position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-      opacity: .8;
-    }
-    .stat-card.purple .glowline { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
-    .stat-card.red .glowline    { background: linear-gradient(90deg, transparent, var(--red), transparent); }
-    .stat-card.green .glowline  { background: linear-gradient(90deg, transparent, var(--green), transparent); }
-    .stat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-    .stat-head .label { font-size: 13px; color: var(--text-dim); }
-    .stat-head .icon {
-      width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
-      font-size: 18px; background: rgba(34,211,238,0.12); color: var(--cyan);
-    }
-    .stat-card.purple .icon { background: rgba(167,139,250,0.14); color: var(--purple); }
-    .stat-card.red .icon    { background: rgba(251,94,126,0.14); color: var(--red); }
-    .stat-card.green .icon  { background: rgba(52,211,153,0.14); color: var(--green); }
-    .stat-card .value { font-size: 36px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-    .stat-card .foot { font-size: 12px; color: var(--text-faint); margin-top: 8px; }
-    @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* ---------- 主面板 ---------- */
-    .panels { display: grid; grid-template-columns: 2.6fr 1fr; gap: 18px; margin-bottom: 22px; }
-    .glass {
-      background: var(--glass); border: 1px solid var(--border);
-      border-radius: 18px; padding: 22px; backdrop-filter: blur(12px);
-      animation: rise 0.7s cubic-bezier(.2,.7,.3,1) both;
+    .stat-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--item-gap);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
     }
-    .panel-title { font-size: 15px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
-    .panel-title .accent { width: 4px; height: 16px; border-radius: 3px; background: linear-gradient(var(--cyan), var(--purple)); }
 
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .stat-line {
+      width: 34px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--accent, var(--blue));
+      opacity: 0.8;
+    }
+
+    .stat-value {
+      margin-top: var(--panel-pad);
+      font-size: 38px;
+      line-height: 1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
+    }
+
+    .stat-foot {
+      margin-top: var(--micro-gap);
+      color: var(--faint);
+      font-size: 12px;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.76fr) minmax(330px, 0.64fr);
+      gap: var(--section-gap);
+      align-items: start;
+    }
+
+    .panel {
+      border-radius: var(--radius);
+      padding: var(--panel-pad);
+      min-width: 0;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--cluster-gap);
+      margin-bottom: var(--section-gap);
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 19px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .panel-subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .metric-tabs {
+      display: inline-grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      gap: 4px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.88), 0 12px 28px rgba(15, 23, 42, 0.05);
+      min-width: min(100%, 440px);
+    }
+
     .tab {
-      padding: 7px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
-      border: 1px solid var(--border); background: var(--glass); color: var(--text-dim);
-      transition: all .2s;
+      min-height: 34px;
+      border: 0;
+      border-radius: 12px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+      transition: background .2s var(--ease), color .2s var(--ease), box-shadow .2s var(--ease), transform .2s var(--ease);
     }
-    .tab:hover { color: var(--text); border-color: var(--border-glow); }
+
+    .tab:hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.78);
+    }
+
     .tab.active {
-      color: #04121b; font-weight: 600; border-color: transparent;
-      background: linear-gradient(135deg, var(--cyan), #7dd3fc);
-      box-shadow: 0 4px 16px rgba(34,211,238,0.35);
+      color: #fff;
+      background: linear-gradient(135deg, #2563eb, #0891b2);
+      box-shadow: 0 10px 24px rgba(37, 99, 235, 0.22);
+      transform: translateY(-1px);
     }
-    .chart-wrapper { position: relative; height: 330px; }
 
-    /* 设备列表 */
-    .device-panel { max-height: 432px; overflow-y: auto; }
-    .device-panel::-webkit-scrollbar { width: 6px; }
-    .device-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+    .chart-wrapper {
+      height: 440px;
+      padding: var(--item-gap) 0 0;
+    }
+
+    .side-stack {
+      display: grid;
+      gap: var(--section-gap);
+    }
+
+    .device-list {
+      display: grid;
+      gap: var(--item-gap);
+      max-height: 500px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .device-list::-webkit-scrollbar { width: 8px; }
+    .device-list::-webkit-scrollbar-thumb {
+      background: rgba(100,116,139,0.22);
+      border-radius: 999px;
+    }
+
     .device-card {
-      border: 1px solid var(--border); border-radius: 14px; padding: 14px;
-      margin-bottom: 11px; cursor: pointer; position: relative; overflow: hidden;
-      background: var(--glass); transition: all .22s;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: var(--cluster-gap);
+      text-align: left;
+      background: rgba(255,255,255,0.62);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.70);
+      cursor: pointer;
+      transition: transform .18s, border-color .18s, background .18s, box-shadow .18s;
     }
-    .device-card::before {
-      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-      background: var(--dev-color, var(--cyan)); opacity: .85;
-    }
-    .device-card:hover { transform: translateX(3px); border-color: var(--border-glow); }
-    .device-card.active { background: var(--glass-strong); border-color: var(--dev-color, var(--cyan)); box-shadow: 0 0 18px rgba(34,211,238,0.12); }
-    .device-card .dev-name { font-weight: 700; font-size: 14px; margin-bottom: 9px; display: flex; align-items: center; gap: 8px; }
-    .device-card .dev-name .swatch { width: 9px; height: 9px; border-radius: 50%; background: var(--dev-color, var(--cyan)); box-shadow: 0 0 8px var(--dev-color, var(--cyan)); }
-    .device-card .dev-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 12px; color: var(--text-faint); }
-    .device-card .dev-metrics b { color: var(--text); font-weight: 600; }
-    .device-card .dev-status { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-top: 10px; }
-    .dev-status.ok { background: rgba(52,211,153,0.14); color: var(--green); }
-    .dev-status.warn { background: rgba(251,94,126,0.16); color: var(--red); animation: blink 1.4s infinite; }
-    @keyframes blink { 50% { opacity: .55; } }
 
-    /* 异常列表 */
-    .anomaly-title { color: var(--red); }
-    .anomaly-title .accent { background: linear-gradient(var(--red), var(--pink)); }
+    .device-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(37, 99, 235, 0.24);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255,255,255,0.78);
+    }
+
+    .device-card.active {
+      border-color: var(--dev-color, var(--blue));
+      background: rgba(255,255,255,0.88);
+    }
+
+    .device-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--item-gap);
+      margin-bottom: var(--item-gap);
+    }
+
+    .device-name {
+      display: flex;
+      align-items: center;
+      gap: var(--item-gap);
+      min-width: 0;
+      font-weight: 780;
+      color: var(--text);
+    }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--dev-color, var(--blue));
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--dev-color, var(--blue)) 14%, transparent);
+      flex: 0 0 auto;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 750;
+      color: var(--green);
+      background: rgba(5, 150, 105, 0.09);
+    }
+
+    .badge.warn {
+      color: var(--red);
+      background: rgba(220, 38, 38, 0.09);
+    }
+
+    .device-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--micro-gap) var(--item-gap);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .device-metrics b {
+      display: block;
+      margin-top: 3px;
+      color: var(--text);
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .anomaly-list {
+      display: grid;
+      gap: var(--item-gap);
+      max-height: 330px;
+      overflow: auto;
+    }
+
     .anomaly-item {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 11px 12px; border-radius: 11px; margin-bottom: 8px; font-size: 13px;
-      background: rgba(251,94,126,0.06); border: 1px solid rgba(251,94,126,0.16);
-      animation: rise .4s ease both;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--item-gap);
+      padding: var(--item-gap);
+      border: 1px solid rgba(220, 38, 38, 0.13);
+      border-radius: 16px;
+      background: rgba(254, 242, 242, 0.72);
     }
-    .anomaly-item .who { font-weight: 700; }
-    .anomaly-item .reason { color: var(--red); font-size: 12px; margin-left: 8px; }
-    .anomaly-item .time { color: var(--text-faint); font-size: 12px; white-space: nowrap; }
 
-    .empty { color: var(--text-faint); text-align: center; padding: 34px 10px; font-size: 14px; }
+    .anomaly-who {
+      font-weight: 780;
+    }
 
-    @media (max-width: 900px) {
-      .panels { grid-template-columns: 1fr; }
-      .header { padding: 16px 18px; }
-      .container { padding: 18px; }
+    .anomaly-reason {
+      margin-top: 4px;
+      color: var(--red);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .anomaly-time {
+      align-self: center;
+      color: var(--faint);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .empty {
+      padding: 28px 14px;
+      border: 1px dashed rgba(100,116,139,0.24);
+      border-radius: 18px;
+      color: var(--faint);
+      text-align: center;
+      background: rgba(248,250,252,0.52);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1120px) {
+      .hero-panel, .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      .stats-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 0;
+      }
+      .app-shell {
+        width: calc(100vw - 28px);
+        max-width: none;
+        padding-top: 16px;
+      }
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .status-cluster {
+        justify-content: flex-start;
+      }
+      .hero-panel {
+        padding: 18px;
+        border-radius: 24px;
+      }
+      .hero-title {
+        font-size: 30px;
+        line-height: 1.08;
+        word-break: break-all;
+      }
+      .mini-grid {
+        grid-template-columns: 1fr;
+      }
+      .flow-strip, .stats-row {
+        grid-template-columns: 1fr;
+      }
+      .panel-head {
+        flex-direction: column;
+      }
+      .metric-tabs {
+        width: 100%;
+        grid-auto-flow: row;
+      }
+      .chart-wrapper {
+        height: 320px;
+      }
     }
   </style>
 </head>
 <body>
-
-<header class="header">
-  <div class="brand">
-    <div class="logo">🛰️</div>
-    <div>
-      <h1>边-云协同 IoT 智能环境监测</h1>
-      <div class="sub">Edge-Cloud Collaborative Environmental Monitoring</div>
-    </div>
-  </div>
-  <div class="status">
-    <span class="live"><span class="dot" id="statusDot"></span><span id="statusText">实时运行中</span></span>
-    <span class="countdown-pill">下次刷新 <b id="countdown">3</b>s</span>
-  </div>
-</header>
-
-<div class="container">
-  <!-- 统计卡片 -->
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="glowline"></div>
-      <div class="stat-head"><span class="label">在线设备</span><span class="icon">📟</span></div>
-      <div class="value" id="statDevices">0</div>
-      <div class="foot">活跃终端模拟器</div>
-    </div>
-    <div class="stat-card purple">
-      <div class="glowline"></div>
-      <div class="stat-head"><span class="label">数据总量</span><span class="icon">📊</span></div>
-      <div class="value" id="statTotal">0</div>
-      <div class="foot">累计上云记录条数</div>
-    </div>
-    <div class="stat-card red">
-      <div class="glowline"></div>
-      <div class="stat-head"><span class="label">异常记录</span><span class="icon">⚠️</span></div>
-      <div class="value" id="statAnomalies">0</div>
-      <div class="foot">触发阈值的告警</div>
-    </div>
-    <div class="stat-card green">
-      <div class="glowline"></div>
-      <div class="stat-head"><span class="label">聚合上报</span><span class="icon">🧩</span></div>
-      <div class="value" id="statAgg">0</div>
-      <div class="foot">边缘节点聚合次数</div>
-    </div>
-  </div>
-
-  <!-- 图表 + 设备列表 -->
-  <div class="panels">
-    <div class="glass">
-      <div class="panel-title"><span class="accent"></span>实时趋势</div>
-      <div class="tabs">
-        <button class="tab active" data-metric="temperature">🌡️ 温度</button>
-        <button class="tab" data-metric="humidity">💧 湿度</button>
-        <button class="tab" data-metric="pm25">🌫️ PM2.5</button>
-        <button class="tab" data-metric="co2">🫧 CO₂</button>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">IoT</div>
+        <div>
+          <h1>边-云协同环境监测</h1>
+          <div class="subtitle">Device to Edge to Cloud Monitoring Console</div>
+        </div>
       </div>
-      <div class="chart-wrapper"><canvas id="mainChart"></canvas></div>
-    </div>
+      <div class="status-cluster">
+        <span class="glass-pill"><span class="status-dot" id="statusDot"></span><span id="statusText">实时运行中</span></span>
+        <span class="glass-pill">刷新倒计时 <b id="countdown">3</b>s</span>
+      </div>
+    </header>
 
-    <div class="glass device-panel">
-      <div class="panel-title"><span class="accent"></span>设备列表</div>
-      <div id="deviceCards"><div class="empty">暂无设备数据</div></div>
-    </div>
-  </div>
+    <section class="hero-panel" aria-label="系统概览">
+      <div class="hero-copy">
+        <div class="eyebrow">Cloud Edge IoT</div>
+        <h2 class="hero-title"><span class="title-line">清晰、实时、可追踪的</span><span class="title-line">环境数据监测平台</span></h2>
+        <div class="flow-strip">
+          <div class="flow-step" style="--step-accent:#2563eb">
+            <div class="flow-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <rect x="5" y="4" width="14" height="16" rx="3"></rect>
+                <path d="M9 8h6"></path>
+                <path d="M9 12h6"></path>
+                <path d="M12 17h.01"></path>
+              </svg>
+            </div>
+            <div class="flow-body">
+              <b>VM1 终端层</b>
+              <span>多终端采集 JSON 数据</span>
+            </div>
+            <div class="flow-index">01</div>
+          </div>
+          <div class="flow-step" style="--step-accent:#0891b2">
+            <div class="flow-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 12h4l2-5 4 10 2-5h4"></path>
+                <path d="M5 19h14"></path>
+                <path d="M5 5h14"></path>
+              </svg>
+            </div>
+            <div class="flow-body">
+              <b>VM2 边缘层</b>
+              <span>异常检测与数据聚合</span>
+            </div>
+            <div class="flow-index">02</div>
+          </div>
+          <div class="flow-step" style="--step-accent:#7c3aed">
+            <div class="flow-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <ellipse cx="12" cy="5" rx="7" ry="3"></ellipse>
+                <path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path>
+                <path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"></path>
+              </svg>
+            </div>
+            <div class="flow-body">
+              <b>VM3 云端层</b>
+              <span>存储、API 与可视化</span>
+            </div>
+            <div class="flow-index">03</div>
+          </div>
+        </div>
+      </div>
 
-  <!-- 异常列表 -->
-  <div class="glass">
-    <div class="panel-title anomaly-title"><span class="accent"></span>异常事件 · 最近 20 条</div>
-    <div id="anomalyItems"><div class="empty">暂无异常事件 ✓</div></div>
-  </div>
-</div>
+      <aside class="quality-card" aria-label="当前环境概览">
+        <div>
+          <div class="quality-label">当前综合状态</div>
+          <div class="quality-value" id="qualityValue">等待数据</div>
+          <div class="quality-note" id="qualityNote">等待终端接入并上报。</div>
+        </div>
+        <div class="mini-grid">
+          <div class="mini-metric"><span>最新温度</span><b id="latestTemp">--</b></div>
+          <div class="mini-metric"><span>最新 PM2.5</span><b id="latestPm25">--</b></div>
+          <div class="mini-metric"><span>最新湿度</span><b id="latestHumidity">--</b></div>
+          <div class="mini-metric"><span>最新 CO2</span><b id="latestCo2">--</b></div>
+        </div>
+      </aside>
+    </section>
 
-<script src="/static/dashboard.js"></script>
+    <section class="stats-row" aria-label="统计数据">
+      <article class="stat-card" style="--accent:#2563eb">
+        <div class="stat-label"><span>在线设备</span><span class="stat-line"></span></div>
+        <div class="stat-value" id="statDevices">0</div>
+        <div class="stat-foot">当前活跃终端模拟器</div>
+      </article>
+      <article class="stat-card" style="--accent:#0891b2">
+        <div class="stat-label"><span>数据总量</span><span class="stat-line"></span></div>
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-foot">累计上云记录</div>
+      </article>
+      <article class="stat-card" style="--accent:#dc2626">
+        <div class="stat-label"><span>异常记录</span><span class="stat-line"></span></div>
+        <div class="stat-value" id="statAnomalies">0</div>
+        <div class="stat-foot">触发边缘阈值的事件</div>
+      </article>
+      <article class="stat-card" style="--accent:#059669">
+        <div class="stat-label"><span>聚合上报</span><span class="stat-line"></span></div>
+        <div class="stat-value" id="statAgg">0</div>
+        <div class="stat-foot">边缘节点聚合次数</div>
+      </article>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h3 class="panel-title">实时趋势</h3>
+            <div class="panel-subtitle" id="chartSubtitle">展示所有设备的最新变化</div>
+          </div>
+          <div class="metric-tabs" role="tablist" aria-label="指标切换">
+            <button class="tab active" data-metric="temperature" type="button">温度</button>
+            <button class="tab" data-metric="humidity" type="button">湿度</button>
+            <button class="tab" data-metric="pm25" type="button">PM2.5</button>
+            <button class="tab" data-metric="co2" type="button">CO2</button>
+          </div>
+        </div>
+        <div class="chart-wrapper"><canvas id="mainChart"></canvas></div>
+      </article>
+
+      <div class="side-stack">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h3 class="panel-title">设备状态</h3>
+              <div class="panel-subtitle">点击设备可筛选趋势图</div>
+            </div>
+          </div>
+          <div class="device-list" id="deviceCards"><div class="empty">暂无设备数据</div></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h3 class="panel-title">异常事件</h3>
+              <div class="panel-subtitle">最近 20 条边缘告警</div>
+            </div>
+          </div>
+          <div class="anomaly-list" id="anomalyItems"><div class="empty">暂无异常事件</div></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/dashboard.js"></script>
 </body>
 </html>
