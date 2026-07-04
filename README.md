@@ -4,7 +4,7 @@
 
 本项目是《云与边缘计算安全》课程大作业实现：基于 **VM1 终端模拟器 -> VM2 边缘节点 -> VM3 云端平台** 的三层架构，完成环境数据采集、边缘异常检测、聚合转发、云端存储与 Web 可视化展示。
 
-![Dashboard](docs/dashboard.png)
+![Dashboard](docs/dashboard-v2.png)
 
 ## 项目亮点
 
